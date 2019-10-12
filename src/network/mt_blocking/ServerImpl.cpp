@@ -78,9 +78,8 @@ void ServerImpl::Start(uint16_t port, uint32_t n_accept, uint32_t n_workers) {
 // See Server.h
 void ServerImpl::Stop() {
     running.store(false);
-    ServerImpl::Join();
-
     std::unique_lock<std::mutex> list_lock(_sockets_list_lock);
+
     for(auto s: _sockets_list) {
         shutdown(s, SHUT_RDWR);
     }
@@ -95,7 +94,9 @@ void ServerImpl::Join() {
     while (_cur_threads_count) {
         _server_thread_cv.wait(server_thread_lock);
     }
-    _thread.join();
+    if (_thread.joinable()) {
+        _thread.join();
+    }
     std::lock_guard<std::mutex> list_lock(_sockets_list_lock);
     for(auto s: _sockets_list) {
         close(s);
@@ -148,21 +149,16 @@ void ServerImpl::OnRun() {
             if (send(client_socket, msg.data(), msg.size(), 0) <= 0) {
                 _logger->error("Failed to write response to client: {}", strerror(errno));
             }
+
+            std::lock_guard<std::mutex> list_lock(_sockets_list_lock);
             if (_cur_threads_count < _max_threads_count) {
-                {
-                    std::lock_guard<std::mutex> list_lock(_sockets_list_lock);
-                    _sockets_list.push_back(client_socket);
-                }
+                _sockets_list.push_back(client_socket);
                 std::thread th = std::thread([this, client_socket]() { ServerImpl::Worker(client_socket); });
                 th.detach();
-                {
-                    std::lock_guard<std::mutex> list_lock(_threads_count_lock);
-                    _cur_threads_count++;
-                }
+                _cur_threads_count++;
             } else {
                 close(client_socket);
             }
-
         }
     }
 
@@ -264,12 +260,12 @@ void ServerImpl::OnRun() {
             if (pos != _sockets_list.end()) {
                 _sockets_list.erase(pos);
             }
+            close(client_socket);
+            _cur_threads_count--;
+            if (_cur_threads_count == 0) {
+                _server_thread_cv.notify_all();
+            }
         }
-
-        close(client_socket);
-        std::lock_guard<std::mutex> count_lock(_threads_count_lock);
-        _cur_threads_count--;
-        _server_thread_cv.notify_one();
     }
 
 
