@@ -21,15 +21,15 @@ public:
     {
         _max_size = max_size;
         _cur_size = 0;
-        _lru_head = std::make_unique <lru_node>("", "");
-        _lru_head->next = std::make_unique <lru_node>("", "");
+        _lru_head = std::unique_ptr<lru_node>(new lru_node("", ""));;
+        _lru_head->next = std::unique_ptr<lru_node>(new lru_node("", ""));
         _lru_end = _lru_head->next.get();
         _lru_end->prev = _lru_head.get();
     }
 
     ~SimpleLRU() {
         _lru_index.clear();
-        while(_lru_head) {_lru_head = std::move(_lru_head->next); }
+        while(_lru_head) { _lru_head = std::move(_lru_head->next); }
     }
 
     // Implements Afina::Storage interface
@@ -101,7 +101,7 @@ private:
     // Put new node to the list of nodes
     lru_node *put_node(const std::string &key, const std::string &value)
     {
-        std::unique_ptr<lru_node> cur_node = std::make_unique<lru_node>(key, value);
+        std::unique_ptr<lru_node> cur_node = std::unique_ptr<lru_node>(new lru_node(key, value));;
         _cur_size += cur_node->key.size() + cur_node->value.size();
         cur_node->prev = _lru_head.get();
         cur_node->next = std::move(_lru_head->next);
