@@ -64,8 +64,6 @@ private:
 
 
     unsigned int _cur_threads_count = 0;
-    std::mutex _threads_count_lock;
-
     unsigned int _max_threads_count = 10;
 
     std::vector<int> _sockets_list;

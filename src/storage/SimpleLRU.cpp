@@ -11,6 +11,7 @@ bool SimpleLRU::Put(const std::string &key, const std::string &value)
     if (it == _lru_index.end()) {
         if (!check_size(key.size() + value.size())) { return false; }
         lru_node *new_node = put_node(key, value);
+        if (new_node == nullptr ) { return false; }
         _lru_index.insert(std::make_pair(std::ref(new_node->key), std::ref(*new_node)));
     } else {
         move_node_to_head(it->second);
@@ -41,8 +42,8 @@ bool SimpleLRU::Set(const std::string &key, const std::string &value)
 {
     auto it = _lru_index.find(std::ref(key));
     if (it == _lru_index.end()) { return false; }
-    if (!check_size(value.size() - it->second.get().value.size())) { return false; }
     move_node_to_head(it->second.get());
+    if (!check_size(value.size() - it->second.get().value.size())) { return false; }
     it->second.get().value = value;
     return true;
 }
